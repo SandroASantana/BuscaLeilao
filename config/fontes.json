@@ -1,10 +1,281 @@
 {
   "fontes": [
     {
+      "id": "sodre_santoro",
+      "tipo": "json",
+      "nome": "Sodré Santoro",
+      "url": "https://www.sodresantoro.com.br/api/search-lots",
+      "metodo": "POST",
+      "paginas": 200,
+      "tamanho_pagina": 48,
+      "corpo": {
+        "indices": [
+          "veiculos",
+          "judiciais-veiculos",
+          "sucatas"
+        ],
+        "query": {
+          "bool": {
+            "filter": [
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "bool": {
+                        "must": [
+                          {
+                            "term": {
+                              "auction_status": "online"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bool": {
+                        "must": [
+                          {
+                            "term": {
+                              "auction_status": "aberto"
+                            }
+                          }
+                        ],
+                        "must_not": [
+                          {
+                            "terms": {
+                              "lot_status_id": [
+                                5,
+                                7
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "bool": {
+                        "must": [
+                          {
+                            "term": {
+                              "auction_status": "encerrado"
+                            }
+                          },
+                          {
+                            "terms": {
+                              "lot_status_id": [
+                                6
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "bool": {
+                        "must_not": {
+                          "term": {
+                            "lot_status_id": 6
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "bool": {
+                        "must": [
+                          {
+                            "term": {
+                              "lot_status_id": 6
+                            }
+                          },
+                          {
+                            "term": {
+                              "segment_id": 1
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "bool": {
+                        "must_not": [
+                          {
+                            "term": {
+                              "lot_test": true
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              }
+            ]
+          }
+        },
+        "from": "{deslocamento}",
+        "size": 48,
+        "sort": [
+          {
+            "lot_status_id_order": {
+              "order": "asc"
+            }
+          },
+          {
+            "auction_id": {
+              "order": "asc"
+            }
+          },
+          {
+            "lot_number": {
+              "order": "asc"
+            }
+          }
+        ]
+      },
+      "caminho_lista": "results",
+      "campos": {
+        "id_externo": "lot_id",
+        "titulo": "lot_title",
+        "marca": "lot_brand",
+        "modelo": "lot_model",
+        "ano_fabricacao": "lot_year_manufacture",
+        "ano_modelo": "lot_year_model",
+        "categoria": "lot_category",
+        "monta": "lot_sinister",
+        "condicao": "lot_origin",
+        "combustivel": "lot_fuel",
+        "cor": "lot_color",
+        "km": "lot_km",
+        "cidade": "lot_location",
+        "lance_inicial": "bid_initial",
+        "lance_atual": "bid_actual",
+        "data_leilao": "auction_date_init",
+        "imagem_url": "lot_pictures.0",
+        "descricao": "lot_description",
+        "_leilao_id": "auction_id",
+        "_leilao_nome": "auction_name",
+        "_status": "lot_status"
+      },
+      "formatos": {
+        "url": "https://leilao.sodresantoro.com.br/leilao/{_leilao_id}/lote/{id_externo}/",
+        "leilao": "Sodré Santoro - {_leilao_nome} #{_leilao_id}"
+      }
+    },
+    {
+      "id": "freitas",
+      "tipo": "html",
+      "nome": "Freitas Leiloeiro",
+      "url": "https://www.freitasleiloeiro.com.br/Leiloes/PesquisarLotes?Nome=&Categoria=1&TipoLoteId=&FaixaValor=&Condicao=&PatioId=&AnoModeloMin=&AnoModeloMax=&ArCondicionado=false&DirecaoAssistida=false&Tag=&Estado=&Cidade=&ClienteSclId=0&PageNumber={pagina}&TopRows=24",
+      "paginas": 100,
+      "seletores": {
+        "item": "div.cardlote",
+        "id_externo": "a@href|re:leilaoId=(\\d+)&(?:amp;)?loteNumero=(\\d+)",
+        "_leilao_id": "a@href|re:leilaoId=(\\d+)",
+        "_lote": ".cardLote-lote",
+        "titulo": ".cardLote-descVeic",
+        "url": "a@href",
+        "imagem_url": "img.cardLote-img@src",
+        "data_leilao": ".cardLote-data",
+        "lance_atual": ".cardLote-vlr",
+        "condicao": ".cardLote-details",
+        "_status": ".cardLote-btn"
+      },
+      "formatos": {
+        "leilao": "Freitas Leiloeiro - leilão {_leilao_id}"
+      },
+      "excluir": {
+        "_status": "vendido|encerrado|retirado|cancelado"
+      }
+    },
+    {
+      "id": "mega_leiloes",
+      "tipo": "html",
+      "nome": "Mega Leilões",
+      "urls": [
+        "https://www.megaleiloes.com.br/veiculos/carros?pagina={pagina}",
+        "https://www.megaleiloes.com.br/veiculos/motos?pagina={pagina}",
+        "https://www.megaleiloes.com.br/veiculos/caminhoes?pagina={pagina}",
+        "https://www.megaleiloes.com.br/veiculos/onibus?pagina={pagina}"
+      ],
+      "paginas": 30,
+      "seletores": {
+        "item": "div.card",
+        "titulo": "a.card-title",
+        "url": "a.card-title@href|re:^([^?]+)",
+        "id_externo": ".card-number",
+        "imagem_url": "a.card-image@data-bg",
+        "cidade": ".card-locality",
+        "lance_atual": ".card-price",
+        "data_leilao": ".instance.active span",
+        "categoria": "a.card-title@href|re:/veiculos/([a-z]+)/",
+        "_tipo": ".card-instance-title a",
+        "_status": ".card-status"
+      },
+      "formatos": {
+        "leilao": "Mega Leilões - {_tipo}"
+      },
+      "excluir": {
+        "_status": "encerrado|vendido|arrematado|cancelado|suspenso"
+      }
+    },
+    {
+      "id": "copart",
+      "tipo": "json",
+      "nome": "Copart",
+      "url": "https://www.copart.com.br/public/lots/search",
+      "metodo": "POST",
+      "navegador": true,
+      "intervalo": 2,
+      "paginas": 200,
+      "tamanho_pagina": 100,
+      "corpo_form": "draw=1&columns%5B0%5D%5Bdata%5D=0&columns%5B0%5D%5Bname%5D=&columns%5B0%5D%5Bsearchable%5D=true&columns%5B0%5D%5Borderable%5D=false&columns%5B0%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B0%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B1%5D%5Bdata%5D=1&columns%5B1%5D%5Bname%5D=&columns%5B1%5D%5Bsearchable%5D=true&columns%5B1%5D%5Borderable%5D=false&columns%5B1%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B1%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B2%5D%5Bdata%5D=2&columns%5B2%5D%5Bname%5D=&columns%5B2%5D%5Bsearchable%5D=true&columns%5B2%5D%5Borderable%5D=true&columns%5B2%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B2%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B3%5D%5Bdata%5D=3&columns%5B3%5D%5Bname%5D=&columns%5B3%5D%5Bsearchable%5D=true&columns%5B3%5D%5Borderable%5D=true&columns%5B3%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B3%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B4%5D%5Bdata%5D=4&columns%5B4%5D%5Bname%5D=&columns%5B4%5D%5Bsearchable%5D=true&columns%5B4%5D%5Borderable%5D=true&columns%5B4%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B4%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B5%5D%5Bdata%5D=5&columns%5B5%5D%5Bname%5D=&columns%5B5%5D%5Bsearchable%5D=true&columns%5B5%5D%5Borderable%5D=true&columns%5B5%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B5%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B6%5D%5Bdata%5D=6&columns%5B6%5D%5Bname%5D=&columns%5B6%5D%5Bsearchable%5D=true&columns%5B6%5D%5Borderable%5D=true&columns%5B6%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B6%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B7%5D%5Bdata%5D=7&columns%5B7%5D%5Bname%5D=&columns%5B7%5D%5Bsearchable%5D=true&columns%5B7%5D%5Borderable%5D=true&columns%5B7%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B7%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B8%5D%5Bdata%5D=8&columns%5B8%5D%5Bname%5D=&columns%5B8%5D%5Bsearchable%5D=true&columns%5B8%5D%5Borderable%5D=true&columns%5B8%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B8%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B9%5D%5Bdata%5D=9&columns%5B9%5D%5Bname%5D=&columns%5B9%5D%5Bsearchable%5D=true&columns%5B9%5D%5Borderable%5D=true&columns%5B9%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B9%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B10%5D%5Bdata%5D=10&columns%5B10%5D%5Bname%5D=&columns%5B10%5D%5Bsearchable%5D=true&columns%5B10%5D%5Borderable%5D=true&columns%5B10%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B10%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B11%5D%5Bdata%5D=11&columns%5B11%5D%5Bname%5D=&columns%5B11%5D%5Bsearchable%5D=true&columns%5B11%5D%5Borderable%5D=true&columns%5B11%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B11%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B12%5D%5Bdata%5D=12&columns%5B12%5D%5Bname%5D=&columns%5B12%5D%5Bsearchable%5D=true&columns%5B12%5D%5Borderable%5D=true&columns%5B12%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B12%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B13%5D%5Bdata%5D=13&columns%5B13%5D%5Bname%5D=&columns%5B13%5D%5Bsearchable%5D=true&columns%5B13%5D%5Borderable%5D=true&columns%5B13%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B13%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B14%5D%5Bdata%5D=14&columns%5B14%5D%5Bname%5D=&columns%5B14%5D%5Bsearchable%5D=true&columns%5B14%5D%5Borderable%5D=false&columns%5B14%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B14%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B15%5D%5Bdata%5D=15&columns%5B15%5D%5Bname%5D=&columns%5B15%5D%5Bsearchable%5D=true&columns%5B15%5D%5Borderable%5D=false&columns%5B15%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B15%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B16%5D%5Bdata%5D=16&columns%5B16%5D%5Bname%5D=&columns%5B16%5D%5Bsearchable%5D=true&columns%5B16%5D%5Borderable%5D=false&columns%5B16%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B16%5D%5Bsearch%5D%5Bregex%5D=false&order%5B0%5D%5Bcolumn%5D=1&order%5B0%5D%5Bdir%5D=asc&start={deslocamento}&length=100&search%5Bvalue%5D=&search%5Bregex%5D=false&sort=auction_date_utc+asc%2Cbrazil_default_sort+asc&defaultSort=true&query=%2A&watchListOnly=false&freeFormSearch=false&page={pagina0}&size=100",
+      "caminho_lista": "data.results.content",
+      "campos": {
+        "id_externo": "ln",
+        "titulo": "ld",
+        "marca": "mkn",
+        "modelo": "lm",
+        "ano_fabricacao": "manufactureYear",
+        "ano_modelo": "lcy",
+        "categoria": "vehicleType",
+        "monta": "damageClassification",
+        "condicao": "lossType",
+        "cidade": "yn",
+        "lance_atual": "hb",
+        "valor_fipe": "la",
+        "data_leilao": "ad",
+        "imagem_url": "tims",
+        "_grupo": "gr",
+        "_patio": "syn",
+        "_vendedor": "sellerName"
+      },
+      "formatos": {
+        "url": "https://www.copart.com.br/lot/{id_externo}",
+        "leilao": "Copart - {_patio} - {_grupo}",
+        "descricao": "{_vendedor}"
+      }
+    },
+    {
       "id": "demo",
       "tipo": "arquivo",
       "nome": "Demonstração (dados fictícios)",
-      "caminho": "dados/exemplo_lotes.json"
+      "caminho": "dados/exemplo_lotes.json",
+      "ativo": false
     },
     {
       "id": "modelo_html",
@@ -25,7 +296,9 @@
         "monta": ".lote-monta",
         "imagem_url": "img@src"
       },
-      "constantes": {"leilao": "Leilão de veículos - SEU LEILOEIRO"}
+      "constantes": {
+        "leilao": "Leilão de veículos - SEU LEILOEIRO"
+      }
     },
     {
       "id": "modelo_api",

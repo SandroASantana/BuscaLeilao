@@ -120,7 +120,7 @@ def test_corpo_post_com_pagina():
 class FonteQuebrada(Fonte):
     tipo = "quebrada"
 
-    def coletar(self):
+    def coletar(self, max_paginas=None):
         raise RuntimeError("site fora do ar")
 
 
@@ -137,7 +137,84 @@ def test_coletor_isola_falhas(tmp_path, monkeypatch):
 def test_config_padrao_carrega(monkeypatch):
     monkeypatch.chdir(RAIZ)
     fontes = carregar_fontes()
-    assert [f.id for f in fontes] == ["demo"]  # os modelos vêm desativados
+    assert [f.id for f in fontes] == ["sodre_santoro", "freitas", "mega_leiloes", "copart"]
     todos = json.loads((RAIZ / "config/fontes.json").read_text())["fontes"]
-    for config in todos:  # os modelos também precisam ser válidos
+    for config in todos:  # as desativadas também precisam ser válidas
         criar_fonte({k: v for k, v in config.items() if k != "ativo"})
+
+
+def test_extrair_com_regex():
+    from bs4 import BeautifulSoup
+
+    from buscaleilao.fontes.html import extrair
+
+    item = BeautifulSoup('<div><a href="/L?leilaoId=8&amp;loteNumero=12">x</a><b>Lote 7</b></div>',
+                         "html.parser").div
+    assert extrair(item, "a@href|re:leilaoId=(\\d+)&loteNumero=(\\d+)") == "8-12"
+    assert extrair(item, "b|re:\\d+") == "7"
+    assert extrair(item, "b|re:nada") is None
+
+
+def test_montar_lote_formatos_e_exclusao():
+    from buscaleilao.fontes import montar_lote
+
+    config = {
+        "constantes": {"categoria": "carro"},
+        "formatos": {"url": "https://s/{_leilao}/{id_externo}", "leilao": "Leilão {_leilao} {_falta}"},
+        "excluir": {"_status": "vendido"},
+    }
+    lote = montar_lote("f", {"id_externo": "9", "titulo": "UNO", "_leilao": "77"}, config)
+    assert lote.url == "https://s/77/9"
+    assert lote.leilao is None  # formato com campo ausente é ignorado
+    assert lote.categoria == "carro"
+    assert montar_lote("f", {"id_externo": "9", "titulo": "UNO", "_status": "VENDIDO"}, config) is None
+
+
+def test_fonte_html_varias_urls():
+    html = (FIXTURES / "listagem.html").read_text()
+    cliente = ClienteFalso([RespostaFalsa(html), RespostaFalsa(html.replace("A1", "B1").replace("A2", "B2"))])
+    config = {**CONFIG_HTML, "paginas": 1}
+    config.pop("url")
+    config["urls"] = ["https://leiloeiro.test/carros", "https://leiloeiro.test/motos"]
+    lotes = list(FonteHtml(cliente=cliente, **config).coletar())
+    assert [l.id_externo for l in lotes] == ["A1", "A2", "B1", "B2"]
+    assert [u for _, u, _ in cliente.urls] == config["urls"]
+
+
+def test_api_paginacao_por_deslocamento_e_formulario():
+    def pagina(ids):
+        return RespostaFalsa(dados={"itens": [{"id": i, "t": f"FIAT/UNO {i}"} for i in ids]})
+
+    config = {"id": "api3", "url": "https://api.test/busca?p={pagina0}", "metodo": "POST", "paginas": 9,
+              "tamanho_pagina": 2, "corpo_form": "start={deslocamento}&length=2",
+              "caminho_lista": "itens", "campos": {"id_externo": "id", "titulo": "t"}}
+    cliente = ClienteFalso([pagina([1, 2]), pagina([3, 4]), pagina([5])])
+    lotes = list(FonteApiJson(cliente=cliente, **config).coletar())
+    assert len(lotes) == 5
+    assert [(u, kw["data"]) for _, u, kw in cliente.urls[:3]] == [
+        ("https://api.test/busca?p=0", "start=0&length=2"),
+        ("https://api.test/busca?p=1", "start=2&length=2"),
+        ("https://api.test/busca?p=2", "start=4&length=2"),
+    ]
+    # max_paginas limita a coleta
+    cliente = ClienteFalso([pagina([1, 2]), pagina([3, 4]), pagina([5])])
+    assert len(list(FonteApiJson(cliente=cliente, **config).coletar(max_paginas=1))) == 2
+
+
+def test_testar_gera_relatorio(tmp_path):
+    import zipfile
+
+    from buscaleilao.teste_fontes import testar
+
+    html = (FIXTURES / "listagem.html").read_text()
+    ok = FonteHtml(cliente=ClienteFalso([RespostaFalsa(html)]), **{**CONFIG_HTML, "paginas": 1})
+    banco = Banco(tmp_path / "t.db")
+    destino = testar(banco, [ok, FonteQuebrada("ruim")], tmp_path / "r.zip", log=lambda *_: None)
+    with zipfile.ZipFile(destino) as z:
+        resumo = z.read("resumo.txt").decode()
+        resposta = json.loads(z.read("html1/resposta_0.json"))
+        assert "ruim/erro.txt" in z.namelist()
+    assert "== html1: 2 lote(s) - ok" in resumo
+    assert "== ruim: 0 lote(s) - ERRO RuntimeError: site fora do ar" in resumo
+    assert "VW/GOL" in resposta["resposta"]
+    assert banco.buscar(Filtros(fonte=["html1"]))["total"] == 2

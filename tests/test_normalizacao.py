@@ -24,7 +24,7 @@ def test_encontrar_marca_em_texto_livre():
 
 @pytest.mark.parametrize("entrada,esperado", [
     ("PEQUENA MONTA", "pequena"), ("Média Monta", "media"), ("monta: grande", "grande"),
-    ("Sem monta", "sem_monta"), ("sinistro com grande monta na traseira", "grande"), ("", None),
+    ("Sem monta", "sem_monta"), ("sem sinistro", "sem_monta"), ("sinistro com grande monta na traseira", "grande"), ("", None),
     ("veículo em bom estado", None),
 ])
 def test_normalizar_monta(entrada, esperado):
@@ -62,6 +62,9 @@ def test_parse_data():
 
 def test_extrair_anos_e_local():
     assert extrair_anos("GOL 1.0 2015/2016") == (2015, 2016)
+    assert extrair_anos("HONDA/PCX 160, 25/26, PLACA: T__-___7") == (2025, 2026)
+    assert extrair_anos("FUSCA, 81/82, AZUL") == (1981, 1982)
+    assert extrair_anos("lote 30/09 sem ano") == (None, None)
     assert extrair_anos("CG 160 2021") == (2021, 2021)
     assert separar_cidade_uf("Campinas/SP") == ("Campinas", "SP")
     assert separar_cidade_uf("belo horizonte - mg") == ("Belo Horizonte", "MG")
@@ -71,6 +74,16 @@ def test_normalizar_condicao():
     assert normalizar_condicao("Recuperado de financiamento") == "recuperado_financiamento"
     assert normalizar_condicao("Sinistro - indenizado") == "sinistro"
     assert normalizar_condicao("Sucata aproveitável") == "sucata"
+    assert normalizar_condicao("FINANCEIRA") == "recuperado_financiamento"
+    assert normalizar_condicao("seguro 0 km") == "sinistro"
+    assert normalizar_condicao("sem sinistro") is None
+
+
+def test_modelo_sem_detalhes_e_cidade_sem_informacao():
+    lote = normalizar_lote(Lote(fonte="x", id_externo="1", cidade="Sem Informação, SI",
+                                titulo="HONDA/CB300F TWISTER ABS, 25/25, PLACA: T__-___2, GASOL/ALC"))
+    assert (lote.marca, lote.modelo, lote.ano_modelo, lote.categoria) == ("Honda", "CB300F TWISTER ABS", 2025, "moto")
+    assert lote.cidade is None
 
 
 def test_normalizar_lote_completo():

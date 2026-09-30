@@ -92,6 +92,20 @@ def cmd_servir(args) -> int:
     return 0
 
 
+def cmd_testar(args) -> int:
+    from pathlib import Path
+
+    from .teste_fontes import testar
+
+    fontes = carregar_fontes(args.config)
+    if args.fontes:
+        fontes = [f for f in fontes if f.id in args.fontes]
+    destino = testar(Banco(args.banco), fontes, Path(args.saida), max_paginas=args.paginas)
+    print(f"\nRelatório: {destino.resolve()}")
+    print("Os lotes encontrados já aparecem no sistema (python -m buscaleilao servir).")
+    return 0
+
+
 def cmd_diagnosticar(args) -> int:
     from pathlib import Path
 
@@ -149,6 +163,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--porta", type=int, default=8000)
     p.set_defaults(func=cmd_servir)
+
+    p = sub.add_parser("testar", help="teste rápido das fontes (primeiras páginas) com relatório .zip")
+    p.add_argument("fontes", nargs="*", help="ids das fontes; sem nada, testa todas as ativas")
+    p.add_argument("--config", default=str(CONFIG_PADRAO))
+    p.add_argument("--paginas", type=int, default=2, help="páginas por fonte")
+    p.add_argument("--saida", default="teste_fontes.zip")
+    p.set_defaults(func=cmd_testar)
 
     p = sub.add_parser("diagnosticar",
                        help="grava como os sites dos leiloeiros entregam os lotes (gera um .zip)")

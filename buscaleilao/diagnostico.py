@@ -12,6 +12,7 @@ Nada de login ou cookie do usuário é usado: o navegador abre com perfil novo.
 from __future__ import annotations
 
 import json
+import os
 import re
 import zipfile
 from dataclasses import dataclass, field
@@ -22,8 +23,8 @@ from urllib.parse import urljoin, urlparse
 SITES_PADRAO = {
     "copart": "https://www.copart.com.br/",
     "sodre_santoro": "https://www.sodresantoro.com.br/",
-    "vip_leiloes": "https://www.vipleiloes.com.br/",
-    "superbid": "https://www.superbid.net/",
+    "vip_leiloes": "https://www.vipleiloes.com.br/pesquisa?classificacao=Sinistrados",
+    "superbid": "https://exchange.superbid.net/categorias/carros-motos",
     "mega_leiloes": "https://www.megaleiloes.com.br/",
     "freitas": "https://www.freitasleiloeiro.com.br/",
     "palacio_leiloes": "https://www.palaciodosleiloes.com.br/",
@@ -44,6 +45,14 @@ _PALAVRAS_LINK = re.compile(
 _MAX_CORPO = 60_000
 _MAX_HTML = 1_500_000
 _MAX_RESPOSTAS = 40
+_TITULO_DESAFIO = re.compile(r"um momento|just a moment|attention required|verifica|checking", re.I)
+# Botões/links de "próxima página", para capturar como o site pagina os lotes.
+_SELETORES_PROXIMA = (
+    "a.page-link:text-is('2')", "li.page-item a:text-is('2')", "button:text-is('2')",
+    "a[aria-label*='próxim' i]", "a[aria-label*='next' i]", "button[aria-label*='próxim' i]",
+    "button[aria-label*='next' i]", "a:text-matches('^\\s*(próxim[ao]|seguinte)\\s*[›»>]?\\s*$', 'i')",
+    "button:text-matches('^\\s*(próxim[ao]|carregar mais|ver mais)', 'i')",
+)
 
 
 @dataclass
@@ -111,8 +120,9 @@ def escolher_links(url_base: str, links: list[tuple[str, str]], limite: int = 3)
     return escolhidos
 
 
-def _abrir_navegador(pw, oculto: bool, executavel: str | None):
+def abrir_navegador(pw, oculto: bool, executavel: str | None):
     opcoes = {"headless": oculto}
+    executavel = executavel or os.environ.get("BUSCALEILAO_NAVEGADOR")
     if executavel:
         return pw.chromium.launch(executable_path=executavel, **opcoes)
     # Edge vem em todo Windows; assim não é preciso baixar outro navegador.
@@ -133,7 +143,11 @@ def diagnosticar_site(contexto, nome: str, url: str, paginas_extras: int = 3,
         if len(resultado.respostas) >= _MAX_RESPOSTAS or _IGNORAR.search(resp.url):
             return
         tipo = resp.headers.get("content-type", "")
-        if "json" not in tipo:
+        # JSON de qualquer origem; HTML só quando veio de XHR/fetch (pedaços
+        # de página carregados depois, como listas de lotes).
+        if "json" not in tipo and not (
+            "html" in tipo and resp.request.resource_type in ("xhr", "fetch")
+        ):
             return
         try:
             corpo = resp.text()
@@ -154,10 +168,14 @@ def diagnosticar_site(contexto, nome: str, url: str, paginas_extras: int = 3,
 
     pagina.on("response", ao_responder)
 
-    def visitar(alvo: str) -> Pagina:
+    def visitar(alvo: str, paginar: bool = True) -> Pagina:
         p = Pagina(alvo)
         try:
             pagina.goto(alvo, wait_until="domcontentloaded", timeout=45_000)
+            for _ in range(45):  # espera a verificação anti-robô, se houver
+                if not _TITULO_DESAFIO.search(pagina.title() or ""):
+                    break
+                pagina.wait_for_timeout(1000)
             pagina.wait_for_timeout(espera_ms)
             for _ in range(4):  # rola a página para carregar lotes preguiçosos
                 pagina.mouse.wheel(0, 2500)
@@ -165,13 +183,15 @@ def diagnosticar_site(contexto, nome: str, url: str, paginas_extras: int = 3,
             p.url = pagina.url
             p.titulo = pagina.title()
             p.html = pagina.content()[:_MAX_HTML]
+            if paginar:
+                clicar_proxima(pagina, espera_ms)
         except Exception as e:  # noqa: BLE001 - registrar e seguir
             p.erro = f"{type(e).__name__}: {e}"[:500]
         resultado.paginas.append(p)
         return p
 
     log(f"  abrindo {url}")
-    inicial = visitar(url)
+    inicial = visitar(url, paginar=False)
     if not inicial.erro:
         try:
             links = pagina.eval_on_selector_all(
@@ -185,6 +205,20 @@ def diagnosticar_site(contexto, nome: str, url: str, paginas_extras: int = 3,
     return resultado
 
 
+def clicar_proxima(pagina, espera_ms: int) -> bool:
+    """Tenta ir para a página 2 da listagem (só para registrar a requisição)."""
+    for seletor in _SELETORES_PROXIMA:
+        try:
+            alvo = pagina.locator(seletor).first
+            if alvo.count() and alvo.is_visible():
+                alvo.click(timeout=5000)
+                pagina.wait_for_timeout(espera_ms)
+                return True
+        except Exception:  # noqa: BLE001 - seletor inválido/elemento sumiu
+            continue
+    return False
+
+
 def _nome_arquivo(i: int, url: str) -> str:
     base = re.sub(r"[^a-zA-Z0-9]+", "_", urlparse(url).netloc + urlparse(url).path).strip("_")
     return f"{i:02d}_{base[:80]}"
@@ -195,7 +229,7 @@ def _resumo(resultado: ResultadoSite) -> str:
     for p in resultado.paginas:
         estado = f"ERRO {p.erro}" if p.erro else f"{len(p.html):,} bytes - {p.titulo!r}"
         linhas.append(f"  {p.url}  [{estado}]")
-    linhas += ["", f"Respostas JSON capturadas: {len(resultado.respostas)}"]
+    linhas += ["", f"Respostas de API capturadas: {len(resultado.respostas)}"]
     for r in resultado.respostas:
         linhas.append(f"  {r.metodo} {r.status} {len(r.corpo):>7,}b  {r.url[:200]}")
     return "\n".join(linhas) + "\n"
@@ -229,7 +263,7 @@ def executar(sites: dict[str, str], destino: Path, oculto: bool = False,
 
     resultados = []
     with sync_playwright() as pw:
-        navegador = _abrir_navegador(pw, oculto, executavel)
+        navegador = abrir_navegador(pw, oculto, executavel)
         for nome, url in sites.items():
             log(f"[{nome}]")
             contexto = navegador.new_context(locale="pt-BR", viewport={"width": 1366, "height": 900})

@@ -10,19 +10,18 @@ from pathlib import Path
 from typing import Iterable
 
 from ..modelos import Lote
-from .base import Fonte, lote_de_dict
+from .base import Fonte, montar_lote
 
 
 class FonteArquivo(Fonte):
     tipo = "arquivo"
 
-    def coletar(self) -> Iterable[Lote]:
+    def coletar(self, max_paginas: int | None = None) -> Iterable[Lote]:
         caminho = Path(self.config["caminho"])
         dados = json.loads(caminho.read_text(encoding="utf-8"))
         if isinstance(dados, dict):
             dados = dados.get("lotes", [])
-        constantes = self.config.get("constantes", {})
         for item in dados:
-            lote = lote_de_dict(self.id, {**constantes, **item})
+            lote = montar_lote(self.id, item, self.config)
             if lote:
                 yield lote

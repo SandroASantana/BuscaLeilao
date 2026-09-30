@@ -32,6 +32,22 @@ e leilão, além de mostrar **o que tem disponível em cada leilão**.
 4. **Interface**: página web com filtros laterais e aba "Por leilão", API REST
    (FastAPI, documentação automática em `/docs`) e linha de comando.
 
+## Leiloeiros configurados
+
+| Fonte | Como coleta |
+|---|---|
+| Sodré Santoro (`sodre_santoro`) | API de busca de lotes (veículos, judiciais e sucatas) |
+| Freitas Leiloeiro (`freitas`) | listagem HTML de veículos |
+| Mega Leilões (`mega_leiloes`) | listagem HTML de carros, motos, caminhões e ônibus |
+| Copart (`copart`) | API de lotes, pelo navegador (o site bloqueia robôs) |
+
+Superbid, VIP Leilões e Palácio dos Leilões ainda não estão configurados.
+
+Fontes com `"navegador": true` abrem uma janela do Edge/Chrome durante a
+coleta (precisa de `pip install playwright`). A configuração de cada fonte foi
+feita a partir de respostas reais dos sites; se um site mudar, rode
+`python -m buscaleilao testar` e use o relatório gerado para ajustar.
+
 ## Rodando
 
 ```bash
@@ -44,6 +60,9 @@ python -m buscaleilao coletar
 python -m buscaleilao buscar --categoria carro --marca vw,fiat --monta pequena,media --ano-min 2018
 python -m buscaleilao buscar "hilux" --uf SP --lance-max 60000 --ordem lance
 python -m buscaleilao leiloes            # o que tem em cada leilão
+
+# teste rápido de cada leiloeiro (2 páginas) com relatório em teste_fontes.zip
+python -m buscaleilao testar
 
 # interface web em http://127.0.0.1:8000  (API em /docs)
 python -m buscaleilao servir

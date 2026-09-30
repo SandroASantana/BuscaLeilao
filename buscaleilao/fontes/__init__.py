@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .api_json import FonteApiJson
 from .arquivo import FonteArquivo
-from .base import ClienteHttp, Fonte, lote_de_dict
+from .base import ClienteHttp, ClienteNavegador, Fonte, lote_de_dict, montar_lote
 from .html import FonteHtml
 
 TIPOS: dict[str, type[Fonte]] = {
@@ -43,6 +43,6 @@ def carregar_fontes(caminho: str | Path = CONFIG_PADRAO) -> list[Fonte]:
 
 
 __all__ = [
-    "ClienteHttp", "Fonte", "FonteApiJson", "FonteArquivo", "FonteHtml", "TIPOS",
-    "carregar_fontes", "criar_fonte", "lote_de_dict", "registrar",
+    "ClienteHttp", "ClienteNavegador", "Fonte", "FonteApiJson", "FonteArquivo", "FonteHtml", "TIPOS",
+    "carregar_fontes", "criar_fonte", "lote_de_dict", "montar_lote", "registrar",
 ]

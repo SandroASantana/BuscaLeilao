@@ -131,7 +131,10 @@ _CATEGORIA_ALIASES = {
     "motoneta": "moto", "ciclomotor": "moto",
     "caminhao": "caminhao", "caminhoes": "caminhao", "pesado": "caminhao", "pesados": "caminhao",
     "cavalo mecanico": "caminhao", "carreta": "caminhao",
+    "suv": "carro", "suvs": "carro", "hatch": "carro", "sedan": "carro",
+    "implementos rodoviarios": "caminhao", "semirreboque": "caminhao",
     "utilitario": "utilitario", "utilitarios": "utilitario", "pickup": "utilitario",
+    "picapes": "utilitario", "pickups": "utilitario", "vans": "utilitario",
     "pick-up": "utilitario", "picape": "utilitario", "van": "utilitario", "furgao": "utilitario",
     "onibus": "onibus", "micro-onibus": "onibus", "microonibus": "onibus",
     "maquina": "maquina", "maquinas": "maquina", "trator": "maquina", "implemento": "maquina",
@@ -180,7 +183,7 @@ def normalizar_monta(texto: str | None) -> str | None:
         return None
     if k in {"pequena", "media", "grande"}:
         return k
-    if re.search(r"\bsem monta\b|\bmonta:? ?(nao|nenhuma)\b", k):
+    if re.search(r"\bsem (monta|sinistro)\b|\bmonta:? ?(nao|nenhuma)\b", k):
         return "sem_monta"
     m = re.search(r"\b(pequena|media|grande)\s+monta\b|\bmonta:?\s*(pequena|media|grande)\b", k)
     if m:
@@ -191,9 +194,10 @@ def normalizar_monta(texto: str | None) -> str | None:
 _CONDICOES_PALAVRAS = (
     ("sucata", ("sucata", "baixa definitiva", "fim de vida util")),
     ("recuperado_financiamento", ("recuperado de financiamento", "recuperado financiamento",
-                                  "retomado", "busca e apreensao", "financiamento")),
+                                  "retomado", "busca e apreensao", "financiamento", "financeira")),
     ("roubo_furto", ("roubo", "furto", "recuperado de roubo")),
-    ("sinistro", ("sinistro", "sinistrado", "colisao", "enchente", "alagamento", "incendio")),
+    ("sinistro", ("sinistro", "sinistrado", "colisao", "enchente", "alagamento", "incendio",
+                  "seguro", "seguradora", "indenizado")),
     ("apreendido", ("apreendido", "patio detran", "removido", "detran")),
     ("frota", ("frota", "renovacao de frota", "locadora")),
     ("particular", ("particular",)),
@@ -201,8 +205,8 @@ _CONDICOES_PALAVRAS = (
 
 
 def normalizar_condicao(texto: str | None) -> str | None:
-    k = chave(texto)
-    if not k:
+    k = re.sub(r"\bsem sinistro\b", "", chave(texto))
+    if not k.strip():
         return None
     for condicao, palavras in _CONDICOES_PALAVRAS:
         if _contem_palavra(k, palavras):
@@ -244,6 +248,7 @@ def parse_inteiro(valor) -> int | None:
 
 _RE_ANOS = re.compile(r"(?<!\d)((?:19|20)\d{2})\s*/\s*((?:19|20)\d{2})(?!\d)")
 _RE_ANO = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+_RE_ANOS_CURTOS = re.compile(r"(?<![\d/])(\d{2})/(\d{2})(?![\d/])")
 
 
 def extrair_anos(texto: str | None) -> tuple[int | None, int | None]:
@@ -253,10 +258,20 @@ def extrair_anos(texto: str | None) -> tuple[int | None, int | None]:
     m = _RE_ANOS.search(texto)
     if m:
         return int(m.group(1)), int(m.group(2))
-    anos = [int(a) for a in _RE_ANO.findall(texto) if 1950 <= int(a) <= datetime.now().year + 1]
+    limite = datetime.now().year + 1
+    anos = [int(a) for a in _RE_ANO.findall(texto) if 1950 <= int(a) <= limite]
     if anos:
         return anos[0], anos[0]
+    # Alguns leiloeiros abreviam: 'HB20 1.0, 25/26, PLACA...' -> (2025, 2026)
+    for fab, mod in _RE_ANOS_CURTOS.findall(texto):
+        fab, mod = _ano_curto(int(fab), limite), _ano_curto(int(mod), limite)
+        if 0 <= mod - fab <= 1:
+            return fab, mod
     return None, None
+
+
+def _ano_curto(ano: int, limite: int) -> int:
+    return 2000 + ano if 2000 + ano <= limite else 1900 + ano
 
 
 _FORMATOS_DATA = (
@@ -327,7 +342,9 @@ def _separar_marca_modelo(titulo: str) -> tuple[str | None, str | None]:
     if m:
         marca = encontrar_marca(m.group(1))
         if marca:
-            modelo = _RE_ANOS.sub("", m.group(2))
+            # corta no primeiro separador de detalhes: 'PCX 160, 25/25, PLACA...'
+            modelo = re.split(r",|\s-\s|\s\(", m.group(2))[0]
+            modelo = _RE_ANO.sub("", _RE_ANOS.sub("", modelo))
             return marca, modelo.strip(" -/") or None
     return encontrar_marca(titulo), None
 
@@ -360,6 +377,8 @@ def normalizar_lote(lote: Lote) -> Lote:
 
     if lote.cidade and not lote.uf:
         lote.cidade, lote.uf = separar_cidade_uf(lote.cidade)
+    if lote.cidade and re.match(r"(sem informacao|nao informad[oa]|n/?a)\b", chave(lote.cidade)):
+        lote.cidade = None
     if lote.uf:
         lote.uf = lote.uf.strip().upper()[:2]
 

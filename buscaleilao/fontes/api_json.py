@@ -20,12 +20,20 @@ estável do que raspar o HTML. Exemplo de configuração:
         "lance_atual": "valorLanceAtual",
         "data_leilao": "leilao.dataInicio",
         "leilao": "leilao.nome",
-        "imagem_url": "fotos.0.url"
+        "imagem_url": "fotos.0.url",
+        "_leilao_id": "leilao.id"
       },
-      "url_lote": "https://www.leiloeiroy.com.br/lote/{id_externo}"
+      "formatos": {"url": "https://www.leiloeiroy.com.br/leilao/{_leilao_id}/lote/{id_externo}"}
     }
 
 Caminhos usam ponto para navegar em objetos e números para índices de lista.
+
+Paginação: a URL e o corpo da requisição aceitam os marcadores {pagina}
+(1, 2, 3...), {pagina0} (0, 1, 2...) e {deslocamento} ((pagina - 1) x
+"tamanho_pagina"). O corpo pode ser JSON ("corpo") ou formulário
+("corpo_form", como texto já codificado). Com "navegador": true as chamadas
+são feitas de dentro de um navegador de verdade (sites com proteção
+anti-robô). "formatos", "constantes" e "excluir": veja fontes.base.montar_lote.
 """
 
 from __future__ import annotations
@@ -34,7 +42,7 @@ import logging
 from typing import Any, Iterable
 
 from ..modelos import Lote
-from .base import ClienteHttp, Fonte, lote_de_dict
+from .base import Fonte, criar_cliente, montar_lote
 
 log = logging.getLogger(__name__)
 
@@ -56,58 +64,71 @@ def pegar(dados: Any, caminho: str | None) -> Any:
     return atual
 
 
-def _com_pagina(valor: Any, pagina: int) -> Any:
-    """Substitui "{pagina}" no corpo da requisição (o valor exato vira número)."""
-    if valor == "{pagina}":
-        return pagina
+def _marcadores(pagina: int, tamanho: int) -> dict[str, int]:
+    return {"pagina": pagina, "pagina0": pagina - 1, "deslocamento": (pagina - 1) * tamanho}
+
+
+def _preencher(valor: Any, marcadores: dict[str, int]) -> Any:
+    """Substitui {pagina}, {pagina0} e {deslocamento}; se o valor for só o
+    marcador, vira número."""
     if isinstance(valor, str):
-        return valor.replace("{pagina}", str(pagina))
+        for nome, numero in marcadores.items():
+            if valor == "{" + nome + "}":
+                return numero
+            valor = valor.replace("{" + nome + "}", str(numero))
+        return valor
     if isinstance(valor, dict):
-        return {k: _com_pagina(v, pagina) for k, v in valor.items()}
+        return {k: _preencher(v, marcadores) for k, v in valor.items()}
     if isinstance(valor, list):
-        return [_com_pagina(v, pagina) for v in valor]
+        return [_preencher(v, marcadores) for v in valor]
     return valor
 
 
 class FonteApiJson(Fonte):
     tipo = "json"
 
-    def __init__(self, id: str, nome: str | None = None, cliente: ClienteHttp | None = None, **config):
+    def __init__(self, id: str, nome: str | None = None, cliente=None, **config):
         super().__init__(id, nome, **config)
-        self.cliente = cliente or ClienteHttp(
-            intervalo=config.get("intervalo", 1.0),
-            respeitar_robots=config.get("respeitar_robots", True),
-            cabecalhos=config.get("cabecalhos"),
-        )
+        self.cliente = cliente or criar_cliente(config)
 
     def extrair_resposta(self, dados: Any) -> list[Lote]:
         itens = pegar(dados, self.config.get("caminho_lista")) or []
         campos: dict = self.config["campos"]
-        constantes = self.config.get("constantes", {})
-        url_lote = self.config.get("url_lote")
+        config = dict(self.config)
+        if self.config.get("url_lote"):  # forma antiga de "formatos": {"url": ...}
+            config["formatos"] = {"url": self.config["url_lote"], **config.get("formatos", {})}
         lotes = []
         for item in itens:
             valores = {campo: pegar(item, caminho) for campo, caminho in campos.items()}
             valores = {k: (str(v) if isinstance(v, (dict, list)) else v) for k, v in valores.items()}
-            if url_lote and not valores.get("url") and valores.get("id_externo") is not None:
-                valores["url"] = url_lote.format(**{k: v for k, v in valores.items() if v is not None})
             if valores.get("id_externo") is not None:
                 valores["id_externo"] = str(valores["id_externo"])
-            lote = lote_de_dict(self.id, {**constantes, **valores}, url_base=self.config.get("url_base"))
+            lote = montar_lote(self.id, valores, config, url_base=self.config.get("url_base"))
             if lote:
                 lotes.append(lote)
         return lotes
 
-    def coletar(self) -> Iterable[Lote]:
+    def coletar(self, max_paginas: int | None = None) -> Iterable[Lote]:
         url = self.config["url"]
         metodo = self.config.get("metodo", "GET").upper()
         paginas = self.config.get("paginas", 1)
+        if max_paginas:
+            paginas = min(paginas, max_paginas)
+        tamanho = self.config.get("tamanho_pagina", 0)
+        pagina_variavel = any(
+            "{" + m + "}" in str(self.config.get(chave, ""))
+            for m in ("pagina", "pagina0", "deslocamento")
+            for chave in ("url", "corpo", "corpo_form")
+        )
         vistos: set[str] = set()
         for pagina in range(1, paginas + 1):
+            marcadores = _marcadores(pagina, tamanho)
             kwargs = {}
             if "corpo" in self.config:
-                kwargs["json"] = _com_pagina(self.config["corpo"], pagina)
-            resp = self.cliente.requisitar(url.format(pagina=pagina), metodo, **kwargs)
+                kwargs["json"] = _preencher(self.config["corpo"], marcadores)
+            elif "corpo_form" in self.config:
+                kwargs["data"] = _preencher(self.config["corpo_form"], marcadores)
+            resp = self.cliente.requisitar(_preencher(url, marcadores), metodo, **kwargs)
             lotes = [l for l in self.extrair_resposta(resp.json()) if l.id_externo not in vistos]
             log.info("%s: página %d -> %d lotes", self.id, pagina, len(lotes))
             if not lotes:
@@ -115,5 +136,5 @@ class FonteApiJson(Fonte):
             for lote in lotes:
                 vistos.add(lote.id_externo)
                 yield lote
-            if "{pagina}" not in url and "corpo" not in self.config:
+            if not pagina_variavel:
                 break
