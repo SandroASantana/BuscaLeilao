@@ -92,6 +92,20 @@ def cmd_servir(args) -> int:
     return 0
 
 
+def cmd_diagnosticar(args) -> int:
+    from pathlib import Path
+
+    from .diagnostico import executar, sites_de_argumentos
+
+    sites = sites_de_argumentos(args.sites)
+    print(f"Abrindo {len(sites)} site(s) no navegador. Não feche a janela até terminar.\n")
+    destino = executar(sites, Path(args.saida), oculto=args.oculto,
+                       executavel=args.navegador, espera_ms=args.espera * 1000)
+    print(f"\nPronto! Arquivo gerado: {destino.resolve()}")
+    print("Envie esse arquivo na conversa para montar a configuração dos leiloeiros.")
+    return 0
+
+
 def _adicionar_filtros(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("filtros (listas separadas por vírgula)")
     g.add_argument("texto", nargs="?", help="texto livre (ex.: 'gol 1.0')")
@@ -135,6 +149,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--porta", type=int, default=8000)
     p.set_defaults(func=cmd_servir)
+
+    p = sub.add_parser("diagnosticar",
+                       help="grava como os sites dos leiloeiros entregam os lotes (gera um .zip)")
+    p.add_argument("sites", nargs="*",
+                   help="nomes (copart, superbid, ...) ou URLs; sem nada, testa os leiloeiros conhecidos")
+    p.add_argument("--saida", default="diagnostico_leiloes.zip")
+    p.add_argument("--oculto", action="store_true", help="não mostrar a janela do navegador")
+    p.add_argument("--navegador", help="caminho de um executável do Chrome/Chromium")
+    p.add_argument("--espera", type=int, default=4, help="segundos esperando cada página carregar")
+    p.set_defaults(func=cmd_diagnosticar)
 
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,

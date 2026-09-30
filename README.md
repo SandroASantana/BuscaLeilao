@@ -64,6 +64,25 @@ Filtros de lista aceitam vários valores: `?categoria=carro&categoria=moto`.
 
 ## Adicionando um leiloeiro real
 
+### Diagnóstico automático
+
+O comando `diagnosticar` abre os sites num navegador (Edge ou Chrome já
+instalados), entra nas páginas de veículos e grava num `.zip` o HTML e as
+respostas das APIs que o site usa. Esse arquivo é a base para escrever a
+configuração de cada leiloeiro.
+
+```bash
+pip install playwright
+python -m buscaleilao diagnosticar                  # leiloeiros conhecidos
+python -m buscaleilao diagnosticar copart superbid  # só alguns
+python -m buscaleilao diagnosticar https://www.leiloeiro.com.br/veiculos
+```
+
+O navegador abre com perfil novo (sem seus logins ou cookies). O resultado é
+`diagnostico_leiloes.zip`.
+
+### Manualmente
+
 1. Abra o site do leiloeiro com o DevTools (F12) na aba **Rede/Network** e
    navegue pela listagem de veículos. Se aparecer uma requisição que devolve
    JSON com os lotes, use o tipo `json`; senão, use o tipo `html`.
