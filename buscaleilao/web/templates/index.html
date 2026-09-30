@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BuscaLeilão</title>
+<style>
+  :root {
+    --fundo: #f5f6f8; --painel: #fff; --texto: #1c2024; --suave: #5f6b76; --borda: #dde1e6;
+    --destaque: #1f6feb; --destaque-texto: #fff;
+    --pequena: #2e7d32; --media: #b26a00; --grande: #c62828; --sem: #546e7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fundo: #111418; --painel: #1a1f25; --texto: #e6e9ec; --suave: #9aa5b1; --borda: #2c333b;
+      --destaque: #4c8dff; --destaque-texto: #0b0d10;
+      --pequena: #66bb6a; --media: #ffb74d; --grande: #ef5350; --sem: #90a4ae;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--fundo); color: var(--texto); }
+  header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 16px;
+           background: var(--painel); border-bottom: 1px solid var(--borda); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 18px; margin: 0 8px 0 0; }
+  header input[type=search] { flex: 1 1 260px; min-width: 0; padding: 8px 12px; font-size: 15px;
+           border: 1px solid var(--borda); border-radius: 8px; background: var(--fundo); color: var(--texto); }
+  .abas button { padding: 7px 14px; border: 1px solid var(--borda); background: var(--fundo);
+           color: var(--texto); border-radius: 8px; cursor: pointer; }
+  .abas button.ativa { background: var(--destaque); color: var(--destaque-texto); border-color: var(--destaque); }
+  main { display: grid; grid-template-columns: 260px 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  aside { background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; padding: 12px;
+          align-self: start; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow: auto; }
+  aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); margin: 14px 0 6px; }
+  aside h3:first-child { margin-top: 0; }
+  aside label { display: flex; gap: 6px; align-items: center; font-size: 14px; padding: 2px 0; cursor: pointer; }
+  aside label span.n { margin-left: auto; color: var(--suave); font-size: 12px; }
+  .faixa { display: flex; gap: 6px; }
+  .faixa input, aside select { width: 100%; padding: 5px 8px; border: 1px solid var(--borda); border-radius: 6px;
+          background: var(--fundo); color: var(--texto); }
+  .limpar { margin-top: 14px; width: 100%; padding: 7px; border-radius: 8px; border: 1px solid var(--borda);
+          background: var(--fundo); color: var(--texto); cursor: pointer; }
+  .topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: var(--suave); gap: 8px; flex-wrap: wrap; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .card { background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+  .card .foto { aspect-ratio: 16/10; background: var(--borda) center/cover no-repeat; }
+  .card .corpo { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .card h4 { margin: 0; font-size: 15px; }
+  .meta { color: var(--suave); font-size: 13px; }
+  .card .lance { font-weight: 600; font-size: 16px; margin-top: auto; }
+  .card a { color: var(--destaque); text-decoration: none; font-size: 13px; }
+  .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--borda); color: var(--suave); }
+  .tag.monta-pequena { color: var(--pequena); border-color: var(--pequena); }
+  .tag.monta-media { color: var(--media); border-color: var(--media); }
+  .tag.monta-grande { color: var(--grande); border-color: var(--grande); }
+  .tag.monta-sem_monta { color: var(--sem); border-color: var(--sem); }
+  .paginacao { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+  .paginacao button { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--borda); background: var(--painel); color: var(--texto); cursor: pointer; }
+  .paginacao button:disabled { opacity: .4; cursor: default; }
+  .leilao { background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+  .leilao h4 { margin: 0 0 4px; }
+  .leilao .linha { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; align-items: center; }
+  .leilao .linha b { font-size: 12px; color: var(--suave); min-width: 80px; }
+  .leilao button { margin-top: 8px; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--destaque); background: none; color: var(--destaque); cursor: pointer; }
+  .vazio { padding: 40px; text-align: center; color: var(--suave); }
+  #abrir-filtros { display: none; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; padding: 12px 16px; }
+    aside { position: static; max-height: none; display: none; }
+    aside.aberto { display: block; }
+    #abrir-filtros { display: inline-block; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>BuscaLeilão</h1>
+  <input type="search" id="q" placeholder="Buscar: gol 1.0, hilux, cg 160, Campinas..." autocomplete="off">
+  <div class="abas">
+    <button id="aba-lotes" class="ativa">Lotes</button>
+    <button id="aba-leiloes">Por leilão</button>
+    <button id="abrir-filtros">Filtros</button>
+  </div>
+</header>
+<main>
+  <aside id="filtros">
+    <div id="facetas"></div>
+    <h3>Ano (modelo)</h3>
+    <div class="faixa"><input type="number" id="ano_min" placeholder="de"><input type="number" id="ano_max" placeholder="até"></div>
+    <h3>Lance até (R$)</h3>
+    <div class="faixa"><input type="number" id="lance_max" placeholder="ex.: 30000" step="1000"></div>
+    <h3>Km até</h3>
+    <div class="faixa"><input type="number" id="km_max" placeholder="ex.: 100000" step="10000"></div>
+    <h3>Opções</h3>
+    <label><input type="checkbox" id="futuros"> Só leilões futuros</label>
+    <h3>Ordenar por</h3>
+    <select id="ordem">
+      {% for o in ordenacoes %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
+    </select>
+    <button class="limpar" id="limpar">Limpar filtros</button>
+  </aside>
+  <section>
+    <div class="topo"><span id="contagem">Carregando...</span></div>
+    <div id="resultado"></div>
+    <div class="paginacao" id="paginacao"></div>
+  </section>
+</main>
+<script>
+const NOMES = {
+  fonte: "Leiloeiro", leilao: "Leilão", categoria: "Categoria", marca: "Montadora",
+  monta: "Monta", condicao: "Condição", uf: "UF", combustivel: "Combustível",
+};
+const ROTULOS = {
+  sem_monta: "sem monta", pequena: "pequena monta", media: "média monta", grande: "grande monta",
+  recuperado_financiamento: "recuperado de financiamento", roubo_furto: "roubo/furto",
+  caminhao: "caminhão", utilitario: "utilitário", onibus: "ônibus", maquina: "máquina",
+};
+const LISTAS = Object.keys(NOMES);
+const estado = { aba: "lotes", pagina: 1, sel: Object.fromEntries(LISTAS.map(k => [k, new Set()])) };
+const $ = id => document.getElementById(id);
+const rotulo = v => v == null ? "não informado" : (ROTULOS[v] || v);
+const moeda = v => v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function params(extra = {}) {
+  const p = new URLSearchParams();
+  const q = $("q").value.trim(); if (q) p.set("q", q);
+  for (const k of LISTAS) for (const v of estado.sel[k]) p.append(k, v);
+  for (const k of ["ano_min", "ano_max", "lance_max", "km_max"]) if ($(k).value) p.set(k, $(k).value);
+  if ($("futuros").checked) p.set("futuros", "true");
+  for (const [k, v] of Object.entries(extra)) p.set(k, v);
+  return p;
+}
+
+function salvarUrl() {
+  const p = params(); if (estado.aba !== "lotes") p.set("aba", estado.aba);
+  if ($("ordem").value !== "data") p.set("ordem", $("ordem").value);
+  history.replaceState(null, "", "?" + p.toString());
+}
+
+function lerUrl() {
+  const p = new URLSearchParams(location.search);
+  $("q").value = p.get("q") || "";
+  for (const k of LISTAS) for (const v of p.getAll(k)) estado.sel[k].add(v);
+  for (const k of ["ano_min", "ano_max", "lance_max", "km_max"]) $(k).value = p.get(k) || "";
+  $("futuros").checked = p.get("futuros") === "true";
+  $("ordem").value = p.get("ordem") || "data";
+  estado.aba = p.get("aba") || "lotes";
+}
+
+async function obter(caminho, p) {
+  const r = await fetch(caminho + "?" + p.toString());
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function desenharFacetas(f) {
+  let html = "";
+  for (const k of LISTAS) {
+    const itens = f[k] || [];
+    if (!itens.length && !estado.sel[k].size) continue;
+    html += `<h3>${NOMES[k]}</h3>`;
+    const vistos = new Set();
+    for (const { valor, total } of itens.slice(0, 15)) {
+      if (valor == null) continue;
+      vistos.add(valor);
+      const marcado = estado.sel[k].has(valor) ? "checked" : "";
+      html += `<label><input type="checkbox" data-k="${k}" value="${esc(valor)}" ${marcado}>${esc(rotulo(valor))}<span class="n">${total}</span></label>`;
+    }
+    for (const valor of estado.sel[k]) if (!vistos.has(valor))
+      html += `<label><input type="checkbox" data-k="${k}" value="${esc(valor)}" checked>${esc(rotulo(valor))}<span class="n">0</span></label>`;
+  }
+  $("facetas").innerHTML = html;
+}
+
+function card(l) {
+  const ano = l.ano_modelo ? `${l.ano_fabricacao}/${l.ano_modelo}` : "";
+  const data = l.data_leilao ? new Date(l.data_leilao).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data";
+  const tags = [l.categoria && rotulo(l.categoria), l.condicao && rotulo(l.condicao), l.combustivel, l.km != null && `${l.km.toLocaleString("pt-BR")} km`]
+    .filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+  const monta = l.monta ? `<span class="tag monta-${esc(l.monta)}">${esc(rotulo(l.monta))}</span>` : "";
+  const foto = l.imagem_url ? `<div class="foto" style="background-image:url('${esc(encodeURI(l.imagem_url))}')"></div>` : "";
+  return `<div class="card">${foto}<div class="corpo">
+    <h4>${esc(l.titulo)}</h4>
+    <div class="meta">${esc([l.marca, l.modelo, ano].filter(Boolean).join(" · "))}</div>
+    <div class="tags">${monta}${tags}</div>
+    <div class="meta">${esc(l.leilao || l.fonte)} — ${esc(data)}<br>${esc([l.cidade, l.uf].filter(Boolean).join("/") || "local não informado")}</div>
+    <div class="lance">${moeda(l.lance_atual ?? l.lance_inicial)}${l.valor_fipe ? ` <span class="meta">FIPE ${moeda(l.valor_fipe)}</span>` : ""}</div>
+    ${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener">Ver no site do leiloeiro →</a>` : ""}
+  </div></div>`;
+}
+
+function distribuicao(nome, obj) {
+  const partes = Object.entries(obj).map(([k, v]) => `<span class="tag ${nome === "Monta" ? "monta-" + esc(k) : ""}">${esc(rotulo(k))}: ${v}</span>`).join("");
+  return `<div class="linha"><b>${nome}</b>${partes}</div>`;
+}
+
+async function atualizar() {
+  salvarUrl();
+  try {
+    const base = params();
+    const facetas = await obter("/api/facetas", base);
+    desenharFacetas(facetas);
+    if (estado.aba === "lotes") {
+      const r = await obter("/api/lotes", params({ pagina: estado.pagina, limite: 30, ordem: $("ordem").value }));
+      $("contagem").textContent = `${r.total.toLocaleString("pt-BR")} lote(s)`;
+      $("resultado").innerHTML = r.lotes.length ? `<div class="grade">${r.lotes.map(card).join("")}</div>` : `<div class="vazio">Nenhum lote com esses filtros.</div>`;
+      const paginas = Math.max(1, Math.ceil(r.total / r.por_pagina));
+      $("paginacao").innerHTML = `<button id="ant" ${estado.pagina <= 1 ? "disabled" : ""}>Anterior</button>
+        <span>${estado.pagina} / ${paginas}</span><button id="prox" ${estado.pagina >= paginas ? "disabled" : ""}>Próxima</button>`;
+      $("ant").onclick = () => { estado.pagina--; atualizar(); scrollTo(0, 0); };
+      $("prox").onclick = () => { estado.pagina++; atualizar(); scrollTo(0, 0); };
+    } else {
+      const leiloes = await obter("/api/leiloes", base);
+      $("contagem").textContent = `${leiloes.length} leilão(ões)`;
+      $("paginacao").innerHTML = "";
+      $("resultado").innerHTML = leiloes.length ? leiloes.map((l, i) => {
+        const data = l.data_inicio ? new Date(l.data_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem data";
+        return `<div class="leilao"><h4>${esc(l.leilao || "(sem nome)")}</h4>
+          <div class="meta">${esc(l.fonte)} · ${esc(data)} · <b>${l.total}</b> lote(s) · menor lance ${moeda(l.menor_lance)}</div>
+          ${distribuicao("Categoria", l.categoria)}${distribuicao("Monta", l.monta)}${distribuicao("Montadoras", l.marca)}
+          <button data-leilao="${i}">Ver lotes deste leilão</button></div>`;
+      }).join("") : `<div class="vazio">Nenhum leilão com esses filtros.</div>`;
+      document.querySelectorAll("[data-leilao]").forEach(b => b.onclick = () => {
+        const l = leiloes[+b.dataset.leilao];
+        estado.sel.fonte = new Set([l.fonte]);
+        estado.sel.leilao = new Set(l.leilao ? [l.leilao] : []);
+        trocarAba("lotes");
+      });
+    }
+  } catch (e) {
+    $("contagem").textContent = "Erro ao consultar a API";
+    $("resultado").innerHTML = `<div class="vazio">${esc(e.message)}</div>`;
+  }
+}
+
+function trocarAba(aba) {
+  estado.aba = aba; estado.pagina = 1;
+  $("aba-lotes").classList.toggle("ativa", aba === "lotes");
+  $("aba-leiloes").classList.toggle("ativa", aba === "leiloes");
+  atualizar();
+}
+
+let espera;
+const reagir = () => { estado.pagina = 1; clearTimeout(espera); espera = setTimeout(atualizar, 250); };
+$("q").addEventListener("input", reagir);
+for (const id of ["ano_min", "ano_max", "lance_max", "km_max"]) $(id).addEventListener("input", reagir);
+$("futuros").addEventListener("change", reagir);
+$("ordem").addEventListener("change", reagir);
+$("facetas").addEventListener("change", e => {
+  const k = e.target.dataset.k; if (!k) return;
+  e.target.checked ? estado.sel[k].add(e.target.value) : estado.sel[k].delete(e.target.value);
+  reagir();
+});
+$("limpar").onclick = () => {
+  for (const k of LISTAS) estado.sel[k].clear();
+  for (const id of ["q", "ano_min", "ano_max", "lance_max", "km_max"]) $(id).value = "";
+  $("futuros").checked = false; reagir();
+};
+$("aba-lotes").onclick = () => trocarAba("lotes");
+$("aba-leiloes").onclick = () => trocarAba("leiloes");
+$("abrir-filtros").onclick = () => $("filtros").classList.toggle("aberto");
+lerUrl();
+trocarAba(estado.aba);
+</script>
+</body>
+</html>

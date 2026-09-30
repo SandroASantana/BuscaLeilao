@@ -1,0 +1,58 @@
+{
+  "fontes": [
+    {
+      "id": "demo",
+      "tipo": "arquivo",
+      "nome": "Demonstração (dados fictícios)",
+      "caminho": "dados/exemplo_lotes.json"
+    },
+    {
+      "id": "modelo_html",
+      "ativo": false,
+      "tipo": "html",
+      "nome": "Modelo de leiloeiro com listagem em HTML",
+      "url": "https://www.SEU-LEILOEIRO.com.br/veiculos?pagina={pagina}",
+      "paginas": 5,
+      "intervalo": 2,
+      "seletores": {
+        "item": "div.lote",
+        "id_externo": "@data-id",
+        "titulo": ".lote-titulo",
+        "url": "a@href",
+        "lance_atual": ".lote-lance",
+        "data_leilao": ".lote-data",
+        "cidade": ".lote-local",
+        "monta": ".lote-monta",
+        "imagem_url": "img@src"
+      },
+      "constantes": {"leilao": "Leilão de veículos - SEU LEILOEIRO"}
+    },
+    {
+      "id": "modelo_api",
+      "ativo": false,
+      "tipo": "json",
+      "nome": "Modelo de leiloeiro com API JSON",
+      "url": "https://api.SEU-LEILOEIRO.com.br/lotes?pagina={pagina}&tamanho=100",
+      "paginas": 20,
+      "caminho_lista": "dados.itens",
+      "campos": {
+        "id_externo": "id",
+        "titulo": "descricao",
+        "marca": "veiculo.marca",
+        "modelo": "veiculo.modelo",
+        "ano_fabricacao": "veiculo.anoFabricacao",
+        "ano_modelo": "veiculo.anoModelo",
+        "categoria": "veiculo.tipo",
+        "monta": "veiculo.monta",
+        "km": "veiculo.km",
+        "cidade": "patio.cidade",
+        "uf": "patio.uf",
+        "lance_atual": "lanceAtual",
+        "data_leilao": "leilao.data",
+        "leilao": "leilao.titulo",
+        "imagem_url": "fotos.0.url"
+      },
+      "url_lote": "https://www.SEU-LEILOEIRO.com.br/lote/{id_externo}"
+    }
+  ]
+}
